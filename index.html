@@ -8,7 +8,8 @@
         body {
             font-family: Arial, sans-serif;
             text-align: center;
-            background-color: #f8f1e4;
+            background-color: #f8eed9;
+            padding: 20px;
         }
         .container {
             max-width: 400px;
@@ -19,137 +20,119 @@
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
         button {
-            padding: 10px 15px;
-            background: #007bff;
+            background-color: #007bff;
             color: white;
+            padding: 10px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            font-size: 16px;
         }
         button:hover {
-            background: #0056b3;
+            background-color: #0056b3;
+        }
+        .gift-container {
+            margin-top: 20px;
         }
         .gift-image {
-            width: 100px;
-            height: 100px;
-            object-fit: contain;
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 10px;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>🎁 Ramadan Giveaway 🎁</h2>
+        <h1>🎁 Ramadan Giveaway 🎁</h1>
         <p>Tap the button below to receive a surprise gift!</p>
-        <button onclick="revealGift()">Reveal My Gift</button>
-        
-        <h3>🎉 You got: <span id="giftName">...</span></h3>
-        <img id="giftImage" class="gift-image" src="" alt="Gift Image">
+        <button id="revealButton" onclick="revealGift()">Reveal My Gift</button>
+
+        <div class="gift-container" id="giftContainer" style="display:none;">
+            <h2>🎉 You got: <span id="giftName"></span></h2>
+            <img id="giftImage" class="gift-image" src="" alt="Gift Image">
+        </div>
     </div>
 
     <script>
-        const githubUsername = "itsmask97";
+        const repoOwner = "itsmask97"; 
         const repoName = "RamadanGiveaways";
-        const token = "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";
-        const csvFilePath = "stock.csv"; // Path to CSV file
+        const stockFilePath = "stock.csv";
+        const updateWorkflow = "update_stock.yml";
 
-        async function getStockData() {
-            const url = `https://raw.githubusercontent.com/${githubUsername}/${repoName}/main/${csvFilePath}`;
+        async function fetchStockData() {
+            const url = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/${stockFilePath}`;
             try {
                 const response = await fetch(url);
-                const csvText = await response.text();
-                return parseCSV(csvText);
+                const text = await response.text();
+                return parseCSV(text);
             } catch (error) {
-                console.error("Error fetching stock data:", error);
-                return [];
+                console.error("Failed to fetch stock data:", error);
+                alert("Error loading stock data.");
             }
         }
 
-        function parseCSV(csvText) {
-            const rows = csvText.trim().split("\n").slice(1);
-            return rows.map(row => {
-                const [giftName, stock, probability] = row.split(",");
-                return { giftName, stock: parseInt(stock, 10), probability: parseInt(probability, 10) };
-            }).filter(item => !isNaN(item.stock));
+        function parseCSV(text) {
+            const lines = text.split("\n").slice(1);
+            const stockData = lines.map(line => {
+                const [name, stock, probability] = line.split(",");
+                return { name: name.trim(), stock: parseInt(stock), probability: parseFloat(probability) };
+            }).filter(item => item.stock > 0); 
+            return stockData;
         }
 
         function selectGift(stockData) {
-            let totalWeight = stockData.reduce((sum, item) => sum + item.probability, 0);
-            let randomNum = Math.random() * totalWeight;
+            const totalProbability = stockData.reduce((sum, item) => sum + item.probability, 0);
+            const rand = Math.random() * totalProbability;
             let cumulative = 0;
-
             for (let item of stockData) {
                 cumulative += item.probability;
-                if (randomNum <= cumulative) {
-                    return item;
-                }
+                if (rand < cumulative) return item;
             }
-            return stockData[0]; // Fallback option
+            return stockData[stockData.length - 1];
+        }
+
+        async function updateStock(giftName) {
+            const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/actions/workflows/${updateWorkflow}/dispatches`;
+            const token = "YOUR_GITHUB_TOKEN_HERE"; // Fetch from secrets in GitHub Actions if possible.
+
+            const requestBody = JSON.stringify({ ref: "main", inputs: { gift: giftName } });
+
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Accept": "application/vnd.github.v3+json",
+                    "Content-Type": "application/json"
+                },
+                body: requestBody
+            });
+
+            if (response.ok) {
+                console.log("Stock updated successfully.");
+            } else {
+                console.error("Failed to update stock:", await response.text());
+                alert("Failed to update stock.");
+            }
         }
 
         async function revealGift() {
-            let stockData = await getStockData();
+            document.getElementById("revealButton").disabled = true;
+
+            const stockData = await fetchStockData();
             if (!stockData || stockData.length === 0) {
-                alert("Stock data unavailable.");
+                alert("No gifts available.");
                 return;
             }
 
-            let selectedGift = selectGift(stockData);
-            if (selectedGift.stock > 0) {
-                document.getElementById("giftName").innerText = selectedGift.giftName;
-                document.getElementById("giftImage").src = selectedGift.giftName.toLowerCase().replace(" ", "_") + ".jpg";
-                
-                // Reduce stock
-                selectedGift.stock -= 1;
-                await updateStockOnGitHub(stockData);
-            } else {
-                alert("Sorry, this gift is out of stock. Try again!");
-            }
-        }
+            const selectedGift = selectGift(stockData);
 
-        async function updateStockOnGitHub(stockData) {
-            const newCSVContent = "Gift Name,Stock,Probability\n" + stockData.map(item => 
-                `${item.giftName},${item.stock},${item.probability}`
-            ).join("\n");
+            document.getElementById("giftName").innerText = selectedGift.name;
+            document.getElementById("giftImage").src = selectedGift.name.toLowerCase().replace(" ", "_") + ".jpg";
+            document.getElementById("giftContainer").style.display = "block";
 
-            const apiURL = `https://api.github.com/repos/${githubUsername}/${repoName}/contents/${csvFilePath}`;
-            
-            try {
-                // Step 1: Get the SHA hash of the file
-                const getSHA = await fetch(apiURL, {
-                    headers: { Authorization: `token ${token}` }
-                });
-
-                if (!getSHA.ok) throw new Error("Failed to fetch file SHA");
-                const fileData = await getSHA.json();
-                const sha = fileData.sha;
-
-                // Step 2: Convert CSV to Base64
-                const encodedCSV = btoa(unescape(encodeURIComponent(newCSVContent)));
-
-                // Step 3: Update the file on GitHub
-                const updatePayload = {
-                    message: "Updated stock after giveaway",
-                    content: encodedCSV, // Base64 content
-                    sha
-                };
-
-                const updateResponse = await fetch(apiURL, {
-                    method: "PUT",
-                    headers: {
-                        Authorization: `token ${token}`,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(updatePayload)
-                });
-
-                if (!updateResponse.ok) throw new Error("Failed to update stock on GitHub");
-
-                console.log("Stock successfully updated on GitHub!");
-            } catch (error) {
-                console.error("Error updating stock:", error);
-                alert("Failed to update stock.");
-            }
+            await updateStock(selectedGift.name);
         }
     </script>
 
