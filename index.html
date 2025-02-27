@@ -4,135 +4,96 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ramadan Giveaway</title>
+    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-database.js"></script>
+
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
-            background-color: #f8eed9;
-            padding: 20px;
+            background-color: #fdf2d5;
         }
         .container {
-            max-width: 400px;
-            margin: auto;
-            background: white;
+            margin: 50px auto;
             padding: 20px;
+            background: white;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
         }
         button {
             background-color: #007bff;
             color: white;
-            padding: 10px;
             border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            padding: 10px 20px;
             font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
         }
         button:hover {
             background-color: #0056b3;
         }
-        .gift-container {
-            margin-top: 20px;
-        }
-        .gift-image {
-            width: 150px;
-            height: 150px;
-            object-fit: cover;
-            border-radius: 10px;
+        img {
+            width: 100px;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>🎁 Ramadan Giveaway 🎁</h1>
+        <h2>🎁 Ramadan Giveaway 🎁</h2>
         <p>Tap the button below to receive a surprise gift!</p>
-        <button id="revealButton" onclick="revealGift()">Reveal My Gift</button>
-
-        <div class="gift-container" id="giftContainer" style="display:none;">
-            <h2>🎉 You got: <span id="giftName"></span></h2>
-            <img id="giftImage" class="gift-image" src="" alt="Gift Image">
-        </div>
+        <button onclick="revealGift()">Reveal My Gift</button>
+        <h3 id="giftText"></h3>
+        <img id="giftImage" src="" alt="Gift Image" style="display:none;">
     </div>
 
     <script>
-        const repoOwner = "itsmask97"; 
-        const repoName = "RamadanGiveaways";
-        const stockFilePath = "stock.csv";
-        const updateWorkflow = "update_stock.yml";
+        // Your Firebase configuration
+        const firebaseConfig = {
+              apiKey: "AIzaSyAf1yU-Zq-FyV0_ZsuY4sFRtrooJNhuNrI",
+              authDomain: "ramadangiveaway-baed5.firebaseapp.com",
+              databaseURL: "https://ramadangiveaway-baed5-default-rtdb.asia-southeast1.firebasedatabase.app",
+              projectId: "ramadangiveaway-baed5",
+              storageBucket: "ramadangiveaway-baed5.firebasestorage.app",
+              messagingSenderId: "34724754610",
+              appId: "1:34724754610:web:1efd4c84b56b6cba6985ab",
+              measurementId: "G-39HCHNBH6J"
+        };
 
-        async function fetchStockData() {
-            const url = `https://raw.githubusercontent.com/${repoOwner}/${repoName}/main/${stockFilePath}`;
-            try {
-                const response = await fetch(url);
-                const text = await response.text();
-                return parseCSV(text);
-            } catch (error) {
-                console.error("Failed to fetch stock data:", error);
-                alert("Error loading stock data.");
-            }
-        }
-
-        function parseCSV(text) {
-            const lines = text.split("\n").slice(1);
-            const stockData = lines.map(line => {
-                const [name, stock, probability] = line.split(",");
-                return { name: name.trim(), stock: parseInt(stock), probability: parseFloat(probability) };
-            }).filter(item => item.stock > 0); 
-            return stockData;
-        }
-
-        function selectGift(stockData) {
-            const totalProbability = stockData.reduce((sum, item) => sum + item.probability, 0);
-            const rand = Math.random() * totalProbability;
-            let cumulative = 0;
-            for (let item of stockData) {
-                cumulative += item.probability;
-                if (rand < cumulative) return item;
-            }
-            return stockData[stockData.length - 1];
-        }
-
-        async function updateStock(giftName) {
-            const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/actions/workflows/${updateWorkflow}/dispatches`;
-            const token = "Ramadan2025"; // Fetch from secrets in GitHub Actions if possible.
-
-            const requestBody = JSON.stringify({ ref: "main", inputs: { gift: giftName } });
-
-            const response = await fetch(apiUrl, {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Accept": "application/vnd.github.v3+json",
-                    "Content-Type": "application/json"
-                },
-                body: requestBody
-            });
-
-            if (response.ok) {
-                console.log("Stock updated successfully.");
-            } else {
-                console.error("Failed to update stock:", await response.text());
-                alert("Failed to update stock.");
-            }
-        }
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
         async function revealGift() {
-            document.getElementById("revealButton").disabled = true;
+            try {
+                const snapshot = await database.ref('/').once('value');
+                const data = snapshot.val();
+                
+                let giftPool = [];
+                Object.keys(data).forEach(gift => {
+                    for (let i = 0; i < data[gift].probability; i++) {
+                        giftPool.push(gift);
+                    }
+                });
 
-            const stockData = await fetchStockData();
-            if (!stockData || stockData.length === 0) {
-                alert("No gifts available.");
-                return;
+                let selectedGift = giftPool[Math.floor(Math.random() * giftPool.length)];
+
+                if (data[selectedGift].stock > 0) {
+                    document.getElementById("giftText").innerText = `🎉 You got: ${selectedGift}`;
+                    document.getElementById("giftImage").src = selectedGift + ".jpg";
+                    document.getElementById("giftImage").style.display = "block";
+
+                    // Update stock
+                    database.ref(`/${selectedGift}/stock`).set(data[selectedGift].stock - 1);
+                } else {
+                    document.getElementById("giftText").innerText = "Sorry, all gifts are out of stock!";
+                }
+            } catch (error) {
+                console.error("Error fetching data: ", error);
             }
-
-            const selectedGift = selectGift(stockData);
-
-            document.getElementById("giftName").innerText = selectedGift.name;
-            document.getElementById("giftImage").src = selectedGift.name.toLowerCase().replace(" ", "_") + ".jpg";
-            document.getElementById("giftContainer").style.display = "block";
-
-            await updateStock(selectedGift.name);
         }
     </script>
 
