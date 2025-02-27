@@ -50,7 +50,7 @@
     <div class="container">
         <h1>🎁 Ramadan Giveaway 🎁</h1>
         <p>Tap the button below to receive a surprise gift!</p>
-        <button onclick="revealGift()">Reveal My Gift</button>
+        <button id="revealButton">Reveal My Gift</button>
         <div id="result" class="gift"></div>
     </div>
 
@@ -62,6 +62,8 @@
             { name: "Coffee", image: "coffee.jpg" },
             { name: "MK3D Box", image: "mk3d_box.jpg" }
         ];
+
+        document.getElementById("revealButton").addEventListener("click", revealGift);
 
         async function checkAndInitializeSheet() {
             try {
@@ -109,7 +111,7 @@
                     return;
                 }
 
-                let totalStock = stockData.reduce((sum, item) => sum + parseInt(item.Stock), 0);
+                let totalStock = stockData.reduce((sum, item) => sum + parseInt(item.Stock || 0), 0);
                 if (totalStock === 0) {
                     alert("All gifts are out of stock!");
                     return;
@@ -117,13 +119,19 @@
 
                 let weightedGifts = [];
                 stockData.forEach(item => {
-                    let probability = Math.round((parseInt(item.Stock) / totalStock) * 100);
-                    for (let i = 0; i < probability; i++) {
-                        weightedGifts.push(item);
+                    let stock = parseInt(item.Stock || 0);
+                    if (stock > 0) {
+                        let probability = Math.round((stock / totalStock) * 100);
+                        for (let i = 0; i < probability; i++) {
+                            weightedGifts.push(item);
+                        }
                     }
                 });
 
-                let selectedGift = weightedGifts[Math.floor(Math.random() * weightedGifts.length)];
+                let selectedGift = weightedGifts.length > 0
+                    ? weightedGifts[Math.floor(Math.random() * weightedGifts.length)]
+                    : null;
+
                 if (!selectedGift) {
                     alert("No available gifts!");
                     return;
