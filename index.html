@@ -10,22 +10,19 @@
             font-family: Arial, sans-serif;
             background-color: #f7e7ce;
             color: #333;
-            padding: 50px;
+            padding: 20px;
+            max-width: 500px;
+            margin: auto;
         }
         .container {
             background: white;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
-            display: inline-block;
-            width: 80%;
-            max-width: 400px;
-        }
-        #giftImage {
-            width: 100px;
-            height: 100px;
-            margin-top: 10px;
-            display: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
         }
         .button {
             background: #008cba;
@@ -35,7 +32,9 @@
             font-size: 16px;
             border-radius: 5px;
             cursor: pointer;
-            margin-top: 15px;
+            margin-top: 20px;
+            width: 80%;
+            max-width: 300px;
         }
         .button:hover {
             background: #005f73;
@@ -45,27 +44,11 @@
             font-weight: bold;
             margin-top: 15px;
         }
-        .history {
-            margin-top: 20px;
-            font-size: 14px;
-            background: #fff;
-            padding: 10px;
-            border-radius: 10px;
-            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        #giftImage {
+            width: 100px;
+            height: 100px;
+            margin-top: 10px;
             display: none;
-        }
-        .history h3 {
-            margin-bottom: 10px;
-        }
-        .history ul {
-            list-style-type: none;
-            padding: 0;
-        }
-        .history ul li {
-            background: #f1f1f1;
-            margin: 5px;
-            padding: 5px;
-            border-radius: 5px;
         }
     </style>
 </head>
@@ -73,42 +56,54 @@
 
     <div class="container">
         <h1>🎁 Ramadan Giveaway 🎁</h1>
-        <p>Tap the button below to reveal your gift!</p>
-        
+        <p>Tap the button below to receive a surprise gift!</p>
+
         <button class="button" onclick="revealGift()">Reveal My Gift</button>
-        
+
         <div id="result"></div>
         <img id="giftImage" src="" alt="Gift Image">
-        
-        <div class="history" id="historyContainer">
-            <h3>Your Gift History</h3>
-            <ul id="historyList"></ul>
-        </div>
     </div>
 
     <script>
-        // Define the available gifts and their probabilities
-        const gifts = [
-            { name: "✨ 10% Discount!", image: "discount.png", probability: 10 },
-            { name: "🌙 Flat Crescent", image: "crescent.png", probability: 15 },
-            { name: "☕ 3D Printed Coaster", image: "coaster.png", probability: 20 },
-            { name: "🎁 Special Keychain", image: "keychain.png", probability: 25 },
-            { name: "💡 Mystery Gift!", image: "mystery.png", probability: 30 }
-        ];
+        const sheetdbUrl = "YOUR_SHEETDB_API_URL"; // Replace with your SheetDB API
+        let gifts = [];
 
-        // Function to randomly select a gift based on probability
+        // Fetch gift data from SheetDB
+        function fetchGiftData() {
+            fetch(sheetdbUrl)
+            .then(response => response.json())
+            .then(data => {
+                gifts = data
+                    .map(item => ({
+                        name: item["Gift Name"],
+                        image: getImageForGift(item["Gift Name"]),
+                        stock: parseInt(item["Stock"]),
+                        probability: parseInt(item["Probability"])
+                    }))
+                    .filter(item => item.stock > 0); // Remove out-of-stock gifts
+            })
+            .catch(error => console.error("Error fetching data from SheetDB:", error));
+        }
+
+        // Function to reveal a gift
         function revealGift() {
-            let random = Math.random() * 100; // Generate a number between 0-100
+            let totalProbability = gifts.reduce((sum, gift) => sum + gift.probability, 0);
+            let random = Math.random() * totalProbability;
             let cumulativeProbability = 0;
-            
+
             for (let gift of gifts) {
                 cumulativeProbability += gift.probability;
                 if (random < cumulativeProbability) {
                     displayGift(gift);
-                    saveGiftToHistory(gift.name);
+                    sendToSheetDB(gift.name);
                     return;
                 }
             }
+
+            // If all else fails, default to the small medal
+            let defaultGift = { name: "🏅 Small Medal", image: "medal.png" };
+            displayGift(defaultGift);
+            sendToSheetDB(defaultGift.name);
         }
 
         // Function to display the selected gift
@@ -118,33 +113,37 @@
             document.getElementById("giftImage").style.display = "block";
         }
 
-        // Function to save gift history in localStorage
-        function saveGiftToHistory(giftName) {
-            let giftHistory = JSON.parse(localStorage.getItem("giftHistory")) || [];
-            giftHistory.push(giftName);
-            localStorage.setItem("giftHistory", JSON.stringify(giftHistory));
-            updateGiftHistory();
+        // Function to send data to SheetDB
+        function sendToSheetDB(giftName) {
+            const payload = {
+                data: [{ "Gift": giftName, "Timestamp": new Date().toLocaleString() }]
+            };
+
+            fetch(sheetdbUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(() => {
+                console.log("Gift selection saved!");
+                fetchGiftData(); // Refresh stock availability
+            })
+            .catch(error => console.error("Error updating SheetDB:", error));
         }
 
-        // Function to display gift history
-        function updateGiftHistory() {
-            let giftHistory = JSON.parse(localStorage.getItem("giftHistory")) || [];
-            let historyList = document.getElementById("historyList");
-
-            historyList.innerHTML = "";
-            giftHistory.forEach(gift => {
-                let listItem = document.createElement("li");
-                listItem.textContent = gift;
-                historyList.appendChild(listItem);
-            });
-
-            if (giftHistory.length > 0) {
-                document.getElementById("historyContainer").style.display = "block";
-            }
+        // Function to get the correct image for each gift
+        function getImageForGift(giftName) {
+            const imageMap = {
+                "🏆 Bag of Coffee": "coffee.png",
+                "🎁 MK3D Box": "mk3d_box.png",
+                "🏅 Small Medal": "medal.png"
+            };
+            return imageMap[giftName] || "default.png";
         }
 
-        // Load history on page load
-        updateGiftHistory();
+        // Fetch gift data on page load
+        fetchGiftData();
     </script>
 
 </body>
