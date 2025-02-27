@@ -42,25 +42,9 @@
         }
     </style>
 
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK via CDN -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
-</head>
-<body>
-
-    <div class="container">
-        <h2>🎁 <b>Ramadan Giveaway</b> 🎁</h2>
-        <p>Tap the button below to receive a surprise gift!</p>
-
-        <!-- Display Possible Prizes -->
-        <p class="highlight">🎉 Get a chance to win: Coffee, MK3D Box & More! 🎁</p>
-
-        <button onclick="revealGift()">Reveal My Gift</button>
-
-        <p id="result"></p>
-        <img id="giftImage" class="gift-image" src="" alt="Gift Image" style="display: none;">
-    </div>
-
     <script>
         // Firebase Configuration
         const firebaseConfig = {
@@ -75,13 +59,18 @@
         };
 
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
+        const app = firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
         // Function to Get Gifts Data
         async function getGifts() {
-            const snapshot = await database.ref('/').get();
-            return snapshot.val();
+            try {
+                const snapshot = await database.ref('/').once('value');
+                return snapshot.val();
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                return null;
+            }
         }
 
         // Function to Reveal Gift
@@ -111,7 +100,7 @@
 
             // Update UI with the Selected Gift
             document.getElementById("result").innerHTML = `<b>🎉 You got: ${selectedGift.replace("_", " ")} 🎉</b>`;
-            document.getElementById("giftImage").src = `${selectedGift}.png`; // Make sure image names match gift names
+            document.getElementById("giftImage").src = `${selectedGift}.jpg`; // Ensure image filenames match gift names
             document.getElementById("giftImage").style.display = "block";
 
             // Reduce Stock in Firebase
@@ -124,6 +113,21 @@
             }
         }
     </script>
+</head>
+<body>
+
+    <div class="container">
+        <h2>🎁 <b>Ramadan Giveaway</b> 🎁</h2>
+        <p>Tap the button below to receive a surprise gift!</p>
+
+        <!-- Display Possible Prizes -->
+        <p class="highlight">🎉 Get a chance to win: Coffee, MK3D Box & More! 🎁</p>
+
+        <button onclick="revealGift()">Reveal My Gift</button>
+
+        <p id="result"></p>
+        <img id="giftImage" class="gift-image" src="" alt="Gift Image" style="display: none;">
+    </div>
 
 </body>
 </html>
