@@ -37,8 +37,8 @@
             background-color: #0056b3;
         }
         img {
-            width: 100px;
-            margin-top: 10px;
+            width: 150px;
+            margin-top: 20px;
         }
     </style>
 </head>
@@ -47,6 +47,7 @@
     <div class="container">
         <h2>🎁 Ramadan Giveaway 🎁</h2>
         <p>Tap the button below to receive a surprise gift!</p>
+        <h3 style="text-align: center;">🎉 Get a chance to win: Coffee, MK3D Box & More! 🎁</h3>
         <button onclick="revealGift()">Reveal My Gift</button>
         <h3 id="giftText"></h3>
         <img id="giftImage" src="" alt="Gift Image" style="display:none;">
@@ -85,7 +86,7 @@
 
                 if (data[selectedGift].stock > 0) {
                     document.getElementById("giftText").innerText = `🎉 You got: ${selectedGift}`;
-                    document.getElementById("giftImage").src = selectedGift + ".jpg";
+                    document.getElementById("giftImage").src = selectedGift + ".png";
                     document.getElementById("giftImage").style.display = "block";
 
                     // Update stock
