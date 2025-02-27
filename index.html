@@ -45,8 +45,8 @@
             margin-top: 15px;
         }
         #giftImage {
-            width: 100px;
-            height: 100px;
+            width: 150px;
+            height: 150px;
             margin-top: 10px;
             display: none;
         }
@@ -97,20 +97,22 @@
             let totalProbability = gifts.reduce((sum, gift) => sum + gift.probability, 0);
             let random = Math.random() * totalProbability;
             let cumulativeProbability = 0;
+            let selectedGift = null;
 
             for (let gift of gifts) {
                 cumulativeProbability += gift.probability;
                 if (random < cumulativeProbability) {
-                    displayGift(gift);
-                    updateStockAndLog(gift);
-                    return;
+                    selectedGift = gift;
+                    break;
                 }
             }
 
-            // Default to a small medal if no gift was selected
-            let defaultGift = { name: "🏅 Small Medal", image: "medal.jpg" };
-            displayGift(defaultGift);
-            updateStockAndLog(defaultGift);
+            if (!selectedGift) {
+                selectedGift = { name: "Medal", image: "medal.jpg" };
+            }
+
+            displayGift(selectedGift);
+            updateStockAndLog(selectedGift);
         }
 
         // Function to display the selected gift
@@ -122,19 +124,24 @@
 
         // Function to update stock and log the giveaway
         function updateStockAndLog(gift) {
-            // Update Stock in Google Sheets
-            let updatedStock = gifts.find(item => item.name === gift.name)?.stock - 1;
+            let selectedGift = gifts.find(item => item.name === gift.name);
+            if (!selectedGift) return;
 
-            if (updatedStock >= 0) {
-                const updatePayload = { "Stock": updatedStock.toString() };
-                fetch(`${sheetdbStockUrl}/Gift Name/${encodeURIComponent(gift.name)}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(updatePayload)
-                })
-                .then(() => fetchGiftData()) // Refresh stock
-                .catch(error => console.error("Error updating stock:", error));
-            }
+            let updatedStock = selectedGift.stock - 1;
+            if (updatedStock < 0) updatedStock = 0;
+
+            // Update stock in Google Sheets
+            const updatePayload = { "Stock": updatedStock.toString() };
+            fetch(`${sheetdbStockUrl}/Gift Name/${encodeURIComponent(gift.name)}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatePayload)
+            })
+            .then(() => {
+                console.log("Stock updated!");
+                fetchGiftData(); // Refresh stock
+            })
+            .catch(error => console.error("Error updating stock:", error));
 
             // Log Giveaway Result
             const logPayload = {
@@ -153,9 +160,9 @@
         // Function to get images for each gift
         function getImageForGift(giftName) {
             const imageMap = {
-                "🏆 Bag of Coffee": "coffee.jpg",
-                "🎁 MK3D Box": "mk3d_box.jpg",
-                "🏅 Small Medal": "medal.jpg"
+                "Coffee": "coffee.jpg",
+                "MK3D Box": "mk3d_box.jpg",
+                "Medal": "medal.jpg"
             };
             return imageMap[giftName] || "default.jpg";
         }
