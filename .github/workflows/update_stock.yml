@@ -9,7 +9,7 @@ jobs:
   update-stock:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
       - name: Setup Git
@@ -17,10 +17,23 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
 
-      - name: Update Stock File
+      - name: Fetch Stock File from GitHub
         env:
           GITHUB_TOKEN: ${{ secrets.RAMADAN_TOKEN_SECRET }}
         run: |
           curl -H "Authorization: token $GITHUB_TOKEN" \
-               -H "Accept: application/vnd.github.v3+json" \
+               -H "Accept: application/vnd.github.v3.raw" \
+               -o stock.csv \
                https://api.github.com/repos/itsmask97/RamadanGiveaways/contents/stock.csv
+
+      - name: Update Stock File
+        run: |
+          python3 update_stock.py
+
+      - name: Commit and Push Changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.RAMADAN_TOKEN_SECRET }}
+        run: |
+          git add stock.csv
+          git commit -m "Updated stock after giveaway"
+          git push https://itsmask97:${{ secrets.RAMADAN_TOKEN_SECRET }}@github.com/itsmask97/RamadanGiveaways.git
