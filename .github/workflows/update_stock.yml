@@ -1,0 +1,26 @@
+name: Update Stock CSV
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [update_stock]
+
+jobs:
+  update-stock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Git
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+      - name: Update Stock File
+        env:
+          GITHUB_TOKEN: ${{ secrets.RAMADAN_TOKEN_SECRET }}
+        run: |
+          curl -H "Authorization: token $GITHUB_TOKEN" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/repos/itsmask97/RamadanGiveaways/contents/stock.csv
