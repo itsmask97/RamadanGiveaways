@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ramadan Giveaway</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background-color: #f7e7ce;
+            color: #333;
+            padding: 50px;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            display: inline-block;
+            width: 80%;
+            max-width: 400px;
+        }
+        #giftImage {
+            width: 100px;
+            height: 100px;
+            margin-top: 10px;
+            display: none;
+        }
+        .button {
+            background: #008cba;
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        .button:hover {
+            background: #005f73;
+        }
+        #result {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+        .history {
+            margin-top: 20px;
+            font-size: 14px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+        .history h3 {
+            margin-bottom: 10px;
+        }
+        .history ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .history ul li {
+            background: #f1f1f1;
+            margin: 5px;
+            padding: 5px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🎁 Ramadan Giveaway 🎁</h1>
+        <p>Tap the button below to reveal your gift!</p>
+        
+        <button class="button" onclick="revealGift()">Reveal My Gift</button>
+        
+        <div id="result"></div>
+        <img id="giftImage" src="" alt="Gift Image">
+        
+        <div class="history" id="historyContainer">
+            <h3>Your Gift History</h3>
+            <ul id="historyList"></ul>
+        </div>
+    </div>
+
+    <script>
+        // Define the available gifts and their probabilities
+        const gifts = [
+            { name: "✨ 10% Discount!", image: "discount.png", probability: 10 },
+            { name: "🌙 Flat Crescent", image: "crescent.png", probability: 15 },
+            { name: "☕ 3D Printed Coaster", image: "coaster.png", probability: 20 },
+            { name: "🎁 Special Keychain", image: "keychain.png", probability: 25 },
+            { name: "💡 Mystery Gift!", image: "mystery.png", probability: 30 }
+        ];
+
+        // Function to randomly select a gift based on probability
+        function revealGift() {
+            let random = Math.random() * 100; // Generate a number between 0-100
+            let cumulativeProbability = 0;
+            
+            for (let gift of gifts) {
+                cumulativeProbability += gift.probability;
+                if (random < cumulativeProbability) {
+                    displayGift(gift);
+                    saveGiftToHistory(gift.name);
+                    return;
+                }
+            }
+        }
+
+        // Function to display the selected gift
+        function displayGift(gift) {
+            document.getElementById("result").innerHTML = `🎉 You got: <br> <b>${gift.name}</b>`;
+            document.getElementById("giftImage").src = gift.image;
+            document.getElementById("giftImage").style.display = "block";
+        }
+
+        // Function to save gift history in localStorage
+        function saveGiftToHistory(giftName) {
+            let giftHistory = JSON.parse(localStorage.getItem("giftHistory")) || [];
+            giftHistory.push(giftName);
+            localStorage.setItem("giftHistory", JSON.stringify(giftHistory));
+            updateGiftHistory();
+        }
+
+        // Function to display gift history
+        function updateGiftHistory() {
+            let giftHistory = JSON.parse(localStorage.getItem("giftHistory")) || [];
+            let historyList = document.getElementById("historyList");
+
+            historyList.innerHTML = "";
+            giftHistory.forEach(gift => {
+                let listItem = document.createElement("li");
+                listItem.textContent = gift;
+                historyList.appendChild(listItem);
+            });
+
+            if (giftHistory.length > 0) {
+                document.getElementById("historyContainer").style.display = "block";
+            }
+        }
+
+        // Load history on page load
+        updateGiftHistory();
+    </script>
+
+</body>
+</html>
