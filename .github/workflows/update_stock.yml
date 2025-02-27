@@ -17,18 +17,23 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
 
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq python3
+
       - name: Fetch Stock File from GitHub
         env:
           GITHUB_TOKEN: ${{ secrets.RAMADAN_TOKEN_SECRET }}
         run: |
-          curl -H "Authorization: token $GITHUB_TOKEN" \
-               -H "Accept: application/vnd.github.v3.raw" \
-               -o stock.csv \
+          curl -H "Authorization: Bearer $GITHUB_TOKEN" \
+               -H "Accept: application/vnd.github.v3+json" \
+               -o stock.json \
                https://api.github.com/repos/itsmask97/RamadanGiveaways/contents/stock.csv
+          jq -r '.content' stock.json | base64 --decode > stock.csv
 
       - name: Update Stock File
-        run: |
-          python3 update_stock.py
+        run: python3 update_stock.py
 
       - name: Commit and Push Changes
         env:
@@ -36,4 +41,5 @@ jobs:
         run: |
           git add stock.csv
           git commit -m "Updated stock after giveaway"
-          git push https://itsmask97:${{ secrets.RAMADAN_TOKEN_SECRET }}@github.com/itsmask97/RamadanGiveaways.git
+          git remote set-url origin https://x-access-token:${{ secrets.RAMADAN_TOKEN_SECRET }}@github.com/itsmask97/RamadanGiveaways.git
+          git push origin main
