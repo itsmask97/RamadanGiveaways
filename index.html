@@ -65,12 +65,14 @@
     </div>
 
     <script>
-        const sheetdbUrl = "YOUR_SHEETDB_API_URL"; // Replace with your SheetDB API
+        const sheetdbStockUrl = "https://sheetdb.io/api/v1/0p74ykwl0aai4?sheet=Stock"; 
+        const sheetdbTrackingUrl = "https://sheetdb.io/api/v1/0p74ykwl0aai4?sheet=Giveaway_Tracking"; 
+
         let gifts = [];
 
-        // Fetch gift data from SheetDB
+        // Fetch stock from SheetDB
         function fetchGiftData() {
-            fetch(sheetdbUrl)
+            fetch(sheetdbStockUrl)
             .then(response => response.json())
             .then(data => {
                 gifts = data
@@ -78,15 +80,20 @@
                         name: item["Gift Name"],
                         image: getImageForGift(item["Gift Name"]),
                         stock: parseInt(item["Stock"]),
-                        probability: parseInt(item["Probability"])
+                        probability: parseFloat(item["Probability"])
                     }))
-                    .filter(item => item.stock > 0); // Remove out-of-stock gifts
+                    .filter(item => item.stock > 0); // Remove gifts with stock = 0
             })
-            .catch(error => console.error("Error fetching data from SheetDB:", error));
+            .catch(error => console.error("Error fetching stock data:", error));
         }
 
         // Function to reveal a gift
         function revealGift() {
+            if (gifts.length === 0) {
+                document.getElementById("result").innerHTML = "🎁 No gifts left! Check back later.";
+                return;
+            }
+
             let totalProbability = gifts.reduce((sum, gift) => sum + gift.probability, 0);
             let random = Math.random() * totalProbability;
             let cumulativeProbability = 0;
@@ -95,15 +102,15 @@
                 cumulativeProbability += gift.probability;
                 if (random < cumulativeProbability) {
                     displayGift(gift);
-                    sendToSheetDB(gift.name);
+                    updateStockAndLog(gift);
                     return;
                 }
             }
 
-            // If all else fails, default to the small medal
-            let defaultGift = { name: "🏅 Small Medal", image: "medal.png" };
+            // Default to a small medal if no gift was selected
+            let defaultGift = { name: "🏅 Small Medal", image: "medal.jpg" };
             displayGift(defaultGift);
-            sendToSheetDB(defaultGift.name);
+            updateStockAndLog(defaultGift);
         }
 
         // Function to display the selected gift
@@ -113,36 +120,47 @@
             document.getElementById("giftImage").style.display = "block";
         }
 
-        // Function to send data to SheetDB
-        function sendToSheetDB(giftName) {
-            const payload = {
-                data: [{ "Gift": giftName, "Timestamp": new Date().toLocaleString() }]
+        // Function to update stock and log the giveaway
+        function updateStockAndLog(gift) {
+            // Update Stock in Google Sheets
+            let updatedStock = gifts.find(item => item.name === gift.name)?.stock - 1;
+
+            if (updatedStock >= 0) {
+                const updatePayload = { "Stock": updatedStock.toString() };
+                fetch(`${sheetdbStockUrl}/Gift Name/${encodeURIComponent(gift.name)}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(updatePayload)
+                })
+                .then(() => fetchGiftData()) // Refresh stock
+                .catch(error => console.error("Error updating stock:", error));
+            }
+
+            // Log Giveaway Result
+            const logPayload = {
+                data: [{ "Gift Name": gift.name, "Timestamp": new Date().toLocaleString() }]
             };
 
-            fetch(sheetdbUrl, {
+            fetch(sheetdbTrackingUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(logPayload)
             })
-            .then(response => response.json())
-            .then(() => {
-                console.log("Gift selection saved!");
-                fetchGiftData(); // Refresh stock availability
-            })
-            .catch(error => console.error("Error updating SheetDB:", error));
+            .then(() => console.log("Gift recorded!"))
+            .catch(error => console.error("Error logging gift:", error));
         }
 
-        // Function to get the correct image for each gift
+        // Function to get images for each gift
         function getImageForGift(giftName) {
             const imageMap = {
-                "🏆 Bag of Coffee": "coffee.png",
-                "🎁 MK3D Box": "mk3d_box.png",
-                "🏅 Small Medal": "medal.png"
+                "🏆 Bag of Coffee": "coffee.jpg",
+                "🎁 MK3D Box": "mk3d_box.jpg",
+                "🏅 Small Medal": "medal.jpg"
             };
-            return imageMap[giftName] || "default.png";
+            return imageMap[giftName] || "default.jpg";
         }
 
-        // Fetch gift data on page load
+        // Fetch stock on page load
         fetchGiftData();
     </script>
 
