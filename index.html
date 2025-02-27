@@ -4,57 +4,79 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ramadan Giveaway</title>
-    
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-database-compat.js"></script>
-
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
+            background-color: #f9f1dc;
             text-align: center;
-            background-color: #fdf2d5;
+            padding: 20px;
         }
         .container {
-            margin: 50px auto;
-            padding: 20px;
+            max-width: 400px;
+            margin: auto;
             background: white;
+            padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            width: 300px;
+        }
+        h1 {
+            font-size: 24px;
+            color: #333;
         }
         button {
             background-color: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
-            font-size: 16px;
+            padding: 10px;
+            font-size: 18px;
             cursor: pointer;
             border-radius: 5px;
-            margin-top: 10px;
+            margin-top: 15px;
         }
         button:hover {
             background-color: #0056b3;
         }
-        img {
+        .gift-container {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .gift-image {
             width: 150px;
-            margin-top: 20px;
+            height: auto;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+        .gift-text {
+            font-size: 20px;
+            font-weight: bold;
+            color: #222;
+        }
+        .highlight {
+            font-size: 18px;
+            font-weight: bold;
+            color: #d9534f;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>🎁 Ramadan Giveaway 🎁</h2>
+        <h1>🎁 Ramadan Giveaway 🎁</h1>
         <p>Tap the button below to receive a surprise gift!</p>
-        <h3 style="text-align: center;">🎉 Get a chance to win: Coffee, MK3D Box & More! 🎁</h3>
+        
+        <p class="highlight">🎉 Get a chance to win: Coffee, MK3D Box & More! 🎁</p>
+
         <button onclick="revealGift()">Reveal My Gift</button>
-        <h3 id="giftText"></h3>
-        <img id="giftImage" src="" alt="Gift Image" style="display:none;">
+
+        <div id="result" class="gift-container"></div>
     </div>
 
     <script>
-        // Firebase Configuration (Replace with your actual config)
+        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAf1yU-Zq-FyV0_ZsuY4sFRtrooJNhuNrI",
             authDomain: "ramadangiveaway-baed5.firebaseapp.com",
@@ -70,33 +92,74 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        async function revealGift() {
-            try {
-                const snapshot = await database.ref('/').once('value');
-                const data = snapshot.val();
-                
-                let giftPool = [];
-                Object.keys(data).forEach(gift => {
-                    for (let i = 0; i < data[gift].probability; i++) {
-                        giftPool.push(gift);
+        function revealGift() {
+            database.ref().once("value").then((snapshot) => {
+                if (!snapshot.exists()) {
+                    document.getElementById("result").innerHTML = "<p class='highlight'>No gifts available!</p>";
+                    return;
+                }
+
+                let gifts = [];
+                snapshot.forEach(childSnapshot => {
+                    let gift = childSnapshot.key;
+                    let data = childSnapshot.val();
+                    if (data.stock > 0 && data.probability > 0) {
+                        for (let i = 0; i < data.probability; i++) {
+                            gifts.push(gift);
+                        }
                     }
                 });
 
-                let selectedGift = giftPool[Math.floor(Math.random() * giftPool.length)];
-
-                if (data[selectedGift].stock > 0) {
-                    document.getElementById("giftText").innerText = `🎉 You got: ${selectedGift}`;
-                    document.getElementById("giftImage").src = selectedGift + ".png";
-                    document.getElementById("giftImage").style.display = "block";
-
-                    // Update stock
-                    database.ref(`/${selectedGift}/stock`).set(data[selectedGift].stock - 1);
-                } else {
-                    document.getElementById("giftText").innerText = "Sorry, all gifts are out of stock!";
+                if (gifts.length === 0) {
+                    document.getElementById("result").innerHTML = "<p class='highlight'>Sorry, all gifts are out of stock!</p>";
+                    return;
                 }
-            } catch (error) {
-                console.error("Error fetching data: ", error);
-            }
+
+                let randomGift = gifts[Math.floor(Math.random() * gifts.length)];
+
+                updateStockAndProbability(randomGift);
+
+                let giftImages = {
+                    "coffee": "coffee.png",
+                    "medal": "medal.png",
+                    "mk3d_box": "mk3d_box.png"
+                };
+
+                let giftNames = {
+                    "coffee": "Coffee",
+                    "medal": "Medal",
+                    "mk3d_box": "MK3D Box"
+                };
+
+                document.getElementById("result").innerHTML = `
+                    <p class="gift-text">🎉 You got: ${giftNames[randomGift]} 🎉</p>
+                    <img src="${giftImages[randomGift]}" alt="Gift Image" class="gift-image">
+                `;
+            });
+        }
+
+        function updateStockAndProbability(giftKey) {
+            const giftRef = database.ref(giftKey);
+            
+            giftRef.once("value").then((snapshot) => {
+                if (snapshot.exists()) {
+                    let stock = snapshot.val().stock;
+                    let probability = snapshot.val().probability;
+
+                    if (stock > 0) {
+                        stock--; // Reduce stock by 1
+                    }
+
+                    // If stock reaches zero, set probability to 0
+                    if (stock === 0) {
+                        probability = 0;
+                    }
+
+                    giftRef.update({ stock: stock, probability: probability })
+                        .then(() => console.log("Stock and probability updated"))
+                        .catch((error) => console.error("Error updating stock:", error));
+                }
+            });
         }
     </script>
 
