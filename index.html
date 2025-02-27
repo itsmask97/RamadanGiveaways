@@ -72,14 +72,25 @@
         async function revealGift() {
             try {
                 const snapshot = await database.ref('/').once('value');
-                const data = snapshot.val();
+                let data = snapshot.val();
                 
                 let giftPool = [];
                 Object.keys(data).forEach(gift => {
-                    for (let i = 0; i < data[gift].probability; i++) {
-                        giftPool.push(gift);
+                    // Adjust probability if stock is zero
+                    if (data[gift].stock > 0) {
+                        for (let i = 0; i < data[gift].probability; i++) {
+                            giftPool.push(gift);
+                        }
+                    } else {
+                        // Set probability to 0 if out of stock
+                        database.ref(`/${gift}/probability`).set(0);
                     }
                 });
+
+                if (giftPool.length === 0) {
+                    document.getElementById("giftText").innerText = "Sorry, all gifts are out of stock!";
+                    return;
+                }
 
                 let selectedGift = giftPool[Math.floor(Math.random() * giftPool.length)];
 
@@ -90,8 +101,11 @@
 
                     // Update stock
                     database.ref(`/${selectedGift}/stock`).set(data[selectedGift].stock - 1);
-                } else {
-                    document.getElementById("giftText").innerText = "Sorry, all gifts are out of stock!";
+
+                    // If stock becomes zero, update probability to 0
+                    if (data[selectedGift].stock - 1 === 0) {
+                        database.ref(`/${selectedGift}/probability`).set(0);
+                    }
                 }
             } catch (error) {
                 console.error("Error fetching data: ", error);
