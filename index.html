@@ -4,49 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ramadan Giveaway</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.10.0/firebase-database-compat.js"></script>
+
     <style>
         body {
             font-family: Arial, sans-serif;
             text-align: center;
-            background-color: #fdf4dc;
+            background-color: #fdf2d5;
         }
         .container {
-            max-width: 400px;
-            margin: 30px auto;
-            background: white;
+            margin: 50px auto;
             padding: 20px;
+            background: white;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        .gift-image {
-            width: 100%;
-            max-width: 250px;
-            margin: 20px auto;
-            display: block;
-        }
-        .highlight {
-            font-weight: bold;
-            color: red;
+            width: 300px;
         }
         button {
             background-color: #007bff;
             color: white;
             border: none;
             padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
             font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 10px;
         }
         button:hover {
             background-color: #0056b3;
         }
+        img {
+            width: 100px;
+            margin-top: 10px;
+        }
     </style>
+</head>
+<body>
 
-    <!-- Firebase SDK via CDN -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+    <div class="container">
+        <h2>🎁 Ramadan Giveaway 🎁</h2>
+        <p>Tap the button below to receive a surprise gift!</p>
+        <button onclick="revealGift()">Reveal My Gift</button>
+        <h3 id="giftText"></h3>
+        <img id="giftImage" src="" alt="Gift Image" style="display:none;">
+    </div>
+
     <script>
-        // Firebase Configuration
+        // Firebase Configuration (Replace with your actual config)
         const firebaseConfig = {
             apiKey: "AIzaSyAf1yU-Zq-FyV0_ZsuY4sFRtrooJNhuNrI",
             authDomain: "ramadangiveaway-baed5.firebaseapp.com",
@@ -59,75 +66,38 @@
         };
 
         // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
+        firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // Function to Get Gifts Data
-        async function getGifts() {
+        async function revealGift() {
             try {
                 const snapshot = await database.ref('/').once('value');
-                return snapshot.val();
-            } catch (error) {
-                console.error("Error fetching data:", error);
-                return null;
-            }
-        }
-
-        // Function to Reveal Gift
-        async function revealGift() {
-            const gifts = await getGifts();
-            if (!gifts) {
-                document.getElementById("result").innerText = "No gifts available.";
-                return;
-            }
-
-            let availableGifts = [];
-            for (let gift in gifts) {
-                if (gifts[gift].stock > 0) {
-                    for (let i = 0; i < gifts[gift].probability; i++) {
-                        availableGifts.push(gift);
+                const data = snapshot.val();
+                
+                let giftPool = [];
+                Object.keys(data).forEach(gift => {
+                    for (let i = 0; i < data[gift].probability; i++) {
+                        giftPool.push(gift);
                     }
+                });
+
+                let selectedGift = giftPool[Math.floor(Math.random() * giftPool.length)];
+
+                if (data[selectedGift].stock > 0) {
+                    document.getElementById("giftText").innerText = `🎉 You got: ${selectedGift}`;
+                    document.getElementById("giftImage").src = selectedGift + ".png";
+                    document.getElementById("giftImage").style.display = "block";
+
+                    // Update stock
+                    database.ref(`/${selectedGift}/stock`).set(data[selectedGift].stock - 1);
+                } else {
+                    document.getElementById("giftText").innerText = "Sorry, all gifts are out of stock!";
                 }
-            }
-
-            if (availableGifts.length === 0) {
-                document.getElementById("result").innerText = "Sorry, all gifts are out of stock!";
-                return;
-            }
-
-            // Randomly Select a Gift
-            let selectedGift = availableGifts[Math.floor(Math.random() * availableGifts.length)];
-
-            // Update UI with the Selected Gift
-            document.getElementById("result").innerHTML = `<b>🎉 You got: ${selectedGift.replace("_", " ")} 🎉</b>`;
-            document.getElementById("giftImage").src = `${selectedGift}.png`; // Ensure image filenames match gift names
-            document.getElementById("giftImage").style.display = "block";
-
-            // Reduce Stock in Firebase
-            let newStock = gifts[selectedGift].stock - 1;
-            await database.ref(`/${selectedGift}/stock`).set(newStock);
-
-            // Adjust Probability if Stock is 0
-            if (newStock === 0) {
-                await database.ref(`/${selectedGift}/probability`).set(0);
+            } catch (error) {
+                console.error("Error fetching data: ", error);
             }
         }
     </script>
-</head>
-<body>
-
-    <div class="container">
-        <h2>🎁 <b>Ramadan Giveaway</b> 🎁</h2>
-        <p>Tap the button below to receive a surprise gift!</p>
-
-        <!-- Display Possible Prizes -->
-        <p class="highlight">🎉 Get a chance to win: Coffee, MK3D Box & More! 🎁</p>
-
-        <button onclick="revealGift()">Reveal My Gift</button>
-
-        <p id="result"></p>
-        <img id="giftImage" class="gift-image" src="" alt="Gift Image" style="display: none;">
-    </div>
 
 </body>
 </html>
