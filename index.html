@@ -40,7 +40,7 @@
             margin-top: 10px;
         }
         .gift img {
-            max-width: 100px;
+            max-width: 150px;
             margin-top: 10px;
         }
     </style>
@@ -57,11 +57,13 @@
     <script>
         const sheetdbUrl = "https://sheetdb.io/api/v1/0p74ykwl0aai4";
         const sheetTab = "Stock";
-        const gifts = [
-            { name: "Medal", image: "medal.jpg" },
-            { name: "Coffee", image: "coffee.jpg" },
-            { name: "MK3D Box", image: "mk3d_box.jpg" }
-        ];
+        
+        // Gift details with corresponding image file names
+        const gifts = {
+            "Medal": "medal.jpg",
+            "Coffee": "coffee.jpg",
+            "MK3D Box": "mk3d_box.jpg"
+        };
 
         document.getElementById("revealButton").addEventListener("click", revealGift);
 
@@ -70,8 +72,8 @@
                 const response = await fetch(`${sheetdbUrl}?sheet=${sheetTab}`);
                 const data = await response.json();
 
-                if (data.length === 0) {
-                    console.log("Stock sheet missing, creating and filling it...");
+                if (!data || data.length === 0) {
+                    console.log("Stock sheet missing, creating it...");
                     await createStockSheet();
                 }
             } catch (error) {
@@ -80,19 +82,17 @@
         }
 
         async function createStockSheet() {
-            const payload = {
-                data: gifts.map(gift => ({
-                    "Gift Name": gift.name,
-                    "Stock": "0",
-                    "Probability": "0"
-                }))
-            };
+            const initialStock = [
+                { "Gift Name": "Medal", "Stock": "50", "Probability": "93" },
+                { "Gift Name": "Coffee", "Stock": "1", "Probability": "2" },
+                { "Gift Name": "MK3D Box", "Stock": "3", "Probability": "5" }
+            ];
 
             try {
                 const response = await fetch(`${sheetdbUrl}?sheet=${sheetTab}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ data: initialStock })
                 });
                 console.log("Stock sheet created successfully", await response.json());
             } catch (error) {
@@ -111,12 +111,14 @@
                     return;
                 }
 
+                // Ensure that at least one gift is available
                 let totalStock = stockData.reduce((sum, item) => sum + parseInt(item.Stock || 0), 0);
                 if (totalStock === 0) {
                     alert("All gifts are out of stock!");
                     return;
                 }
 
+                // Prepare the weighted gift list
                 let weightedGifts = [];
                 stockData.forEach(item => {
                     let stock = parseInt(item.Stock || 0);
@@ -128,6 +130,7 @@
                     }
                 });
 
+                // Select a random gift based on probability
                 let selectedGift = weightedGifts.length > 0
                     ? weightedGifts[Math.floor(Math.random() * weightedGifts.length)]
                     : null;
@@ -137,13 +140,16 @@
                     return;
                 }
 
-                let giftImage = gifts.find(g => g.name === selectedGift["Gift Name"])?.image || "default.jpg";
+                let giftName = selectedGift["Gift Name"];
+                let giftImage = gifts[giftName] || "default.jpg";
+                
                 document.getElementById("result").innerHTML = `
-                    🎉 <strong>You got: ${selectedGift["Gift Name"]}</strong> 🎉 <br>
-                    <img src="${giftImage}" alt="Gift Image">
+                    🎉 <strong>You got: ${giftName}</strong> 🎉 <br>
+                    <img src="${giftImage}" alt="${giftName}">
                 `;
 
-                await updateStock(selectedGift["Gift Name"], parseInt(selectedGift.Stock) - 1);
+                // Update stock in the Google Sheet
+                await updateStock(giftName, parseInt(selectedGift.Stock) - 1);
             } catch (error) {
                 console.error("Error revealing gift:", error);
             }
@@ -165,6 +171,7 @@
             }
         }
 
+        // Ensure the sheet exists before allowing users to play
         checkAndInitializeSheet();
     </script>
 
