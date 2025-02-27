@@ -6,49 +6,42 @@
     <title>Ramadan Giveaway</title>
     <style>
         body {
-            text-align: center;
             font-family: Arial, sans-serif;
-            background-color: #f7e7ce;
-            color: #333;
-            padding: 20px;
-            max-width: 500px;
-            margin: auto;
+            text-align: center;
+            background-color: #FAF3E0;
         }
         .container {
+            max-width: 400px;
+            margin: auto;
             background: white;
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
-        .button {
-            background: #008cba;
+        h1 {
+            font-size: 24px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 15px;
+            background: #28a745;
             color: white;
             border: none;
-            padding: 15px;
-            font-size: 16px;
             border-radius: 5px;
             cursor: pointer;
-            margin-top: 20px;
-            width: 80%;
-            max-width: 300px;
+            font-size: 16px;
         }
-        .button:hover {
-            background: #005f73;
+        button:hover {
+            background: #218838;
         }
-        #result {
+        .gift {
             font-size: 20px;
-            font-weight: bold;
-            margin-top: 15px;
-        }
-        #giftImage {
-            width: 150px;
-            height: 150px;
             margin-top: 10px;
-            display: none;
+        }
+        .gift img {
+            max-width: 100px;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -57,118 +50,114 @@
     <div class="container">
         <h1>🎁 Ramadan Giveaway 🎁</h1>
         <p>Tap the button below to receive a surprise gift!</p>
-
-        <button class="button" onclick="revealGift()">Reveal My Gift</button>
-
-        <div id="result"></div>
-        <img id="giftImage" src="" alt="Gift Image">
+        <button onclick="revealGift()">Reveal My Gift</button>
+        <div id="result" class="gift"></div>
     </div>
 
     <script>
-        const sheetdbStockUrl = "https://sheetdb.io/api/v1/0p74ykwl0aai4?sheet=Stock"; 
-        const sheetdbTrackingUrl = "https://sheetdb.io/api/v1/0p74ykwl0aai4?sheet=Giveaway_Tracking"; 
+        const sheetdbUrl = "https://sheetdb.io/api/v1/0p74ykwl0aai4";
+        const sheetTab = "Stock";
+        const gifts = [
+            { name: "Medal", image: "medal.jpg" },
+            { name: "Coffee", image: "coffee.jpg" },
+            { name: "MK3D Box", image: "mk3d_box.jpg" }
+        ];
 
-        let gifts = [];
+        async function checkAndInitializeSheet() {
+            try {
+                const response = await fetch(`${sheetdbUrl}?sheet=${sheetTab}`);
+                const data = await response.json();
 
-        // Fetch stock from SheetDB
-        function fetchGiftData() {
-            fetch(sheetdbStockUrl)
-            .then(response => response.json())
-            .then(data => {
-                gifts = data
-                    .map(item => ({
-                        name: item["Gift Name"],
-                        image: getImageForGift(item["Gift Name"]),
-                        stock: parseInt(item["Stock"]),
-                        probability: parseFloat(item["Probability"])
-                    }))
-                    .filter(item => item.stock > 0); // Remove gifts with stock = 0
-            })
-            .catch(error => console.error("Error fetching stock data:", error));
-        }
-
-        // Function to reveal a gift
-        function revealGift() {
-            if (gifts.length === 0) {
-                document.getElementById("result").innerHTML = "🎁 No gifts left! Check back later.";
-                return;
-            }
-
-            let totalProbability = gifts.reduce((sum, gift) => sum + gift.probability, 0);
-            let random = Math.random() * totalProbability;
-            let cumulativeProbability = 0;
-            let selectedGift = null;
-
-            for (let gift of gifts) {
-                cumulativeProbability += gift.probability;
-                if (random < cumulativeProbability) {
-                    selectedGift = gift;
-                    break;
+                if (data.length === 0) {
+                    console.log("Stock sheet missing, creating and filling it...");
+                    await createStockSheet();
                 }
+            } catch (error) {
+                console.error("Error checking stock sheet:", error);
             }
-
-            if (!selectedGift) {
-                selectedGift = { name: "Medal", image: "medal.jpg" };
-            }
-
-            displayGift(selectedGift);
-            updateStockAndLog(selectedGift);
         }
 
-        // Function to display the selected gift
-        function displayGift(gift) {
-            document.getElementById("result").innerHTML = `🎉 You got: <br> <b>${gift.name}</b>`;
-            document.getElementById("giftImage").src = gift.image;
-            document.getElementById("giftImage").style.display = "block";
-        }
-
-        // Function to update stock and log the giveaway
-        function updateStockAndLog(gift) {
-            let selectedGift = gifts.find(item => item.name === gift.name);
-            if (!selectedGift) return;
-
-            let updatedStock = selectedGift.stock - 1;
-            if (updatedStock < 0) updatedStock = 0;
-
-            // Update stock in Google Sheets
-            const updatePayload = { "Stock": updatedStock.toString() };
-            fetch(`${sheetdbStockUrl}/Gift Name/${encodeURIComponent(gift.name)}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updatePayload)
-            })
-            .then(() => {
-                console.log("Stock updated!");
-                fetchGiftData(); // Refresh stock
-            })
-            .catch(error => console.error("Error updating stock:", error));
-
-            // Log Giveaway Result
-            const logPayload = {
-                data: [{ "Gift Name": gift.name, "Timestamp": new Date().toLocaleString() }]
+        async function createStockSheet() {
+            const payload = {
+                data: gifts.map(gift => ({
+                    "Gift Name": gift.name,
+                    "Stock": "0",
+                    "Probability": "0"
+                }))
             };
 
-            fetch(sheetdbTrackingUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(logPayload)
-            })
-            .then(() => console.log("Gift recorded!"))
-            .catch(error => console.error("Error logging gift:", error));
+            try {
+                const response = await fetch(`${sheetdbUrl}?sheet=${sheetTab}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                console.log("Stock sheet created successfully", await response.json());
+            } catch (error) {
+                console.error("Error creating stock sheet:", error);
+            }
         }
 
-        // Function to get images for each gift
-        function getImageForGift(giftName) {
-            const imageMap = {
-                "Coffee": "coffee.jpg",
-                "MK3D Box": "mk3d_box.jpg",
-                "Medal": "medal.jpg"
-            };
-            return imageMap[giftName] || "default.jpg";
+        async function revealGift() {
+            try {
+                let response = await fetch(`${sheetdbUrl}?sheet=${sheetTab}`);
+                let stockData = await response.json();
+
+                if (!stockData || stockData.length === 0) {
+                    await createStockSheet();
+                    alert("Stock sheet initialized! Please update stock manually.");
+                    return;
+                }
+
+                let totalStock = stockData.reduce((sum, item) => sum + parseInt(item.Stock), 0);
+                if (totalStock === 0) {
+                    alert("All gifts are out of stock!");
+                    return;
+                }
+
+                let weightedGifts = [];
+                stockData.forEach(item => {
+                    let probability = Math.round((parseInt(item.Stock) / totalStock) * 100);
+                    for (let i = 0; i < probability; i++) {
+                        weightedGifts.push(item);
+                    }
+                });
+
+                let selectedGift = weightedGifts[Math.floor(Math.random() * weightedGifts.length)];
+                if (!selectedGift) {
+                    alert("No available gifts!");
+                    return;
+                }
+
+                let giftImage = gifts.find(g => g.name === selectedGift["Gift Name"])?.image || "default.jpg";
+                document.getElementById("result").innerHTML = `
+                    🎉 <strong>You got: ${selectedGift["Gift Name"]}</strong> 🎉 <br>
+                    <img src="${giftImage}" alt="Gift Image">
+                `;
+
+                await updateStock(selectedGift["Gift Name"], parseInt(selectedGift.Stock) - 1);
+            } catch (error) {
+                console.error("Error revealing gift:", error);
+            }
         }
 
-        // Fetch stock on page load
-        fetchGiftData();
+        async function updateStock(giftName, newStock) {
+            if (newStock < 0) newStock = 0;
+
+            const payload = { "Stock": newStock.toString() };
+            try {
+                await fetch(`${sheetdbUrl}/Gift Name/${encodeURIComponent(giftName)}?sheet=${sheetTab}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                console.log(`Stock updated for ${giftName}: ${newStock}`);
+            } catch (error) {
+                console.error("Error updating stock:", error);
+            }
+        }
+
+        checkAndInitializeSheet();
     </script>
 
 </body>
