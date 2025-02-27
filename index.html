@@ -8,7 +8,7 @@
         body {
             font-family: Arial, sans-serif;
             text-align: center;
-            background-color: #FAF3E0;
+            background-color: #f8f1e4;
         }
         .container {
             max-width: 400px;
@@ -18,161 +18,126 @@
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
-        h1 {
-            font-size: 24px;
-        }
         button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 15px;
-            background: #28a745;
+            padding: 10px 15px;
+            background: #007bff;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 16px;
         }
         button:hover {
-            background: #218838;
+            background: #0056b3;
         }
-        .gift {
-            font-size: 20px;
-            margin-top: 10px;
-        }
-        .gift img {
-            max-width: 150px;
-            margin-top: 10px;
+        .gift-image {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>🎁 Ramadan Giveaway 🎁</h1>
+        <h2>🎁 Ramadan Giveaway 🎁</h2>
         <p>Tap the button below to receive a surprise gift!</p>
-        <button id="revealButton">Reveal My Gift</button>
-        <div id="result" class="gift"></div>
+        <button onclick="revealGift()">Reveal My Gift</button>
+        
+        <h3>🎉 You got: <span id="giftName">...</span></h3>
+        <img id="giftImage" class="gift-image" src="" alt="Gift Image">
     </div>
 
     <script>
-        const sheetdbUrl = "https://sheetdb.io/api/v1/0p74ykwl0aai4";
-        const sheetTab = "Stock";
-        
-        // Gift details with corresponding image file names
-        const gifts = {
-            "Medal": "medal.jpg",
-            "Coffee": "coffee.jpg",
-            "MK3D Box": "mk3d_box.jpg"
-        };
+        const githubUsername = "itsmask97";
+        const repoName = "RamadanGiveaways";
+        const token = "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";
+        const csvFilePath = "stock.csv"; // File where stock data is stored
 
-        document.getElementById("revealButton").addEventListener("click", revealGift);
-
-        async function checkAndInitializeSheet() {
+        async function getStockData() {
+            const url = `https://raw.githubusercontent.com/${githubUsername}/${repoName}/main/${csvFilePath}`;
             try {
-                const response = await fetch(`${sheetdbUrl}?sheet=${sheetTab}`);
-                const data = await response.json();
-
-                if (!data || data.length === 0) {
-                    console.log("Stock sheet missing, creating it...");
-                    await createStockSheet();
-                }
+                const response = await fetch(url);
+                const csvText = await response.text();
+                return parseCSV(csvText);
             } catch (error) {
-                console.error("Error checking stock sheet:", error);
+                console.error("Error fetching stock data:", error);
             }
         }
 
-        async function createStockSheet() {
-            const initialStock = [
-                { "Gift Name": "Medal", "Stock": "50", "Probability": "93" },
-                { "Gift Name": "Coffee", "Stock": "1", "Probability": "2" },
-                { "Gift Name": "MK3D Box", "Stock": "3", "Probability": "5" }
-            ];
+        function parseCSV(csvText) {
+            const rows = csvText.split("\n").slice(1);
+            return rows.map(row => {
+                const [giftName, stock, probability] = row.split(",");
+                return { giftName, stock: parseInt(stock, 10), probability: parseInt(probability, 10) };
+            }).filter(item => !isNaN(item.stock));
+        }
 
-            try {
-                const response = await fetch(`${sheetdbUrl}?sheet=${sheetTab}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ data: initialStock })
-                });
-                console.log("Stock sheet created successfully", await response.json());
-            } catch (error) {
-                console.error("Error creating stock sheet:", error);
+        function selectGift(stockData) {
+            let totalWeight = stockData.reduce((sum, item) => sum + item.probability, 0);
+            let randomNum = Math.random() * totalWeight;
+            let cumulative = 0;
+
+            for (let item of stockData) {
+                cumulative += item.probability;
+                if (randomNum <= cumulative) {
+                    return item;
+                }
             }
+            return stockData[0]; // Fallback
         }
 
         async function revealGift() {
-            try {
-                let response = await fetch(`${sheetdbUrl}?sheet=${sheetTab}`);
-                let stockData = await response.json();
+            let stockData = await getStockData();
+            if (!stockData || stockData.length === 0) {
+                alert("Stock data unavailable.");
+                return;
+            }
 
-                if (!stockData || stockData.length === 0) {
-                    await createStockSheet();
-                    alert("Stock sheet initialized! Please update stock manually.");
-                    return;
-                }
-
-                // Ensure that at least one gift is available
-                let totalStock = stockData.reduce((sum, item) => sum + parseInt(item.Stock || 0), 0);
-                if (totalStock === 0) {
-                    alert("All gifts are out of stock!");
-                    return;
-                }
-
-                // Prepare the weighted gift list
-                let weightedGifts = [];
-                stockData.forEach(item => {
-                    let stock = parseInt(item.Stock || 0);
-                    if (stock > 0) {
-                        let probability = Math.round((stock / totalStock) * 100);
-                        for (let i = 0; i < probability; i++) {
-                            weightedGifts.push(item);
-                        }
-                    }
-                });
-
-                // Select a random gift based on probability
-                let selectedGift = weightedGifts.length > 0
-                    ? weightedGifts[Math.floor(Math.random() * weightedGifts.length)]
-                    : null;
-
-                if (!selectedGift) {
-                    alert("No available gifts!");
-                    return;
-                }
-
-                let giftName = selectedGift["Gift Name"];
-                let giftImage = gifts[giftName] || "default.jpg";
+            let selectedGift = selectGift(stockData);
+            if (selectedGift.stock > 0) {
+                document.getElementById("giftName").innerText = selectedGift.giftName;
+                document.getElementById("giftImage").src = selectedGift.giftName.toLowerCase().replace(" ", "_") + ".jpg";
                 
-                document.getElementById("result").innerHTML = `
-                    🎉 <strong>You got: ${giftName}</strong> 🎉 <br>
-                    <img src="${giftImage}" alt="${giftName}">
-                `;
-
-                // Update stock in the Google Sheet
-                await updateStock(giftName, parseInt(selectedGift.Stock) - 1);
-            } catch (error) {
-                console.error("Error revealing gift:", error);
+                // Update stock
+                selectedGift.stock -= 1;
+                updateStockOnGitHub(stockData);
+            } else {
+                alert("Sorry, this gift is out of stock. Try again!");
             }
         }
 
-        async function updateStock(giftName, newStock) {
-            if (newStock < 0) newStock = 0;
+        async function updateStockOnGitHub(stockData) {
+            const newCSVContent = "Gift Name,Stock,Probability\n" + stockData.map(item => 
+                `${item.giftName},${item.stock},${item.probability}`
+            ).join("\n");
 
-            const payload = { "Stock": newStock.toString() };
-            try {
-                await fetch(`${sheetdbUrl}/Gift Name/${encodeURIComponent(giftName)}?sheet=${sheetTab}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-                console.log(`Stock updated for ${giftName}: ${newStock}`);
-            } catch (error) {
-                console.error("Error updating stock:", error);
-            }
+            const apiURL = `https://api.github.com/repos/${githubUsername}/${repoName}/contents/${csvFilePath}`;
+            
+            // Get the latest SHA hash of the file
+            const getSHA = await fetch(apiURL, {
+                headers: { Authorization: `token ${token}` }
+            });
+            const fileData = await getSHA.json();
+            const sha = fileData.sha;
+
+            // Push update
+            const updatePayload = {
+                message: "Updated stock after giveaway",
+                content: btoa(newCSVContent), // Convert to Base64
+                sha
+            };
+
+            fetch(apiURL, {
+                method: "PUT",
+                headers: {
+                    Authorization: `token ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(updatePayload)
+            }).then(response => response.json())
+            .then(data => console.log("Stock updated:", data))
+            .catch(error => console.error("Error updating stock:", error));
         }
-
-        // Ensure the sheet exists before allowing users to play
-        checkAndInitializeSheet();
     </script>
 
 </body>
