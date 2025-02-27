@@ -95,7 +95,7 @@
 
         async function updateStock(giftName) {
             const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/actions/workflows/${updateWorkflow}/dispatches`;
-            const token = "YOUR_GITHUB_TOKEN_HERE"; // Fetch from secrets in GitHub Actions if possible.
+            const token = "Ramadan2025"; // Fetch from secrets in GitHub Actions if possible.
 
             const requestBody = JSON.stringify({ ref: "main", inputs: { gift: giftName } });
 
